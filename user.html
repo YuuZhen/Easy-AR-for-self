@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR 体验</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+    <!-- AR 场景 -->
+    <a-scene id="arScene" embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+        <a-assets id="arAssets">
+            <!-- 资源将通过 JavaScript 动态添加 -->
+        </a-assets>
+        
+        <a-marker id="arMarker" type="pattern" preset="custom" url="">
+            <!-- AR 内容将通过 JavaScript 动态添加 -->
+        </a-marker>
+        
+        <a-entity camera></a-entity>
+    </a-scene>
+    
+    <!-- 加载屏幕 -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="spinner"></div>
+        <h2>正在加载 AR 内容...</h2>
+        <p>请稍候</p>
+    </div>
+    
+    <!-- 使用说明 -->
+    <div id="instructions" class="instructions">
+        <h3>将相机对准标记图像以查看 AR 内容</h3>
+        <button id="startButton" class="start-button">开始 AR 体验</button>
+    </div>
+    
+    <!-- 错误信息 -->
+    <div id="errorMessage" class="error-message" style="display: none;">
+        <div class="error-content">
+            <h2>出错了</h2>
+            <p id="errorText">无法加载 AR 内容</p>
+            <button id="retryButton">重试</button>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let arReady = false;
+        let contentType = '';
+        let contentUrl = '';
+        
+        // DOM 元素
+        const arScene = document.getElementById('arScene');
+        const arAssets = document.getElementById('arAssets');
+        const arMarker = document.getElementById('arMarker');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const instructions = document.getElementById('instructions');
+        const startButton = document.getElementById('startButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const retryButton = document.getElementById('retryButton');
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', init);
+        
+        function init() {
+            // 添加事件监听器
+            startButton.addEventListener('click', startAR);
+            retryButton.addEventListener('click', function() {
+                errorMessage.style.display = 'none';
+                init();
+            });
+            
+            // 获取内容 ID
+            const urlParams = new URLSearchParams(window.location.search);
+            const contentId = urlParams.get('id');
+            
+            if (!contentId) {
+                showError('未提供内容 ID');
+                return;
+            }
+            
+            // 从本地存储加载内容
+            loadContent(contentId);
+        }
+        
+        // 从本地存储加载内容
+        function loadContent(id) {
+            const storedContents = localStorage.getItem('arContents');
+            if (!storedContents) {
+                showError('找不到 AR 内容');
+                return;
+            }
+            
+            const contents = JSON.parse(storedContents);
+            const content = contents.find(item => item.id === id);
+            
+            if (!content) {
+                showError('找不到指定的 AR 内容');
+                return;
+            }
+            
+            // 设置内容类型和数据
+            contentType = content.type;
+            setupContent(content.markerImage, content.contentFile);
+        }
+        
+        // 设置内容
+        function setupContent(markerImage, contentData) {
+            // 创建临时图像用于标记识别
+            const markerImg = new Image();
+            markerImg.onload = function() {
+                // 创建临时画布
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = markerImg.width;
+                canvas.height = markerImg.height;
+                ctx.drawImage(markerImg, 0, 0);
+                
+                // 设置标记图像
+                setupMarkerImage(canvas.toDataURL());
+                
+                // 设置内容
+                contentUrl = contentData;
+                
+                // 设置AR场景
+                setupARScene();
+            };
+            markerImg.onerror = function() {
+                showError('无法加载标记图像');
+            };
+            markerImg.src = markerImage;
+        }
+
+        // 设置标记图像
+        function setupMarkerImage(imageUrl) {
+            // 创建图像标记
+            const patt = document.createElement('a-asset-item');
+            patt.setAttribute('id', 'marker-pattern');
+            patt.setAttribute('src', imageUrl);
+            arAssets.appendChild(patt);
+            
+            // 设置标记
+            arMarker.setAttribute('url', imageUrl);
+        }
+
+        // 设置AR场景
+        function setupARScene() {
+            // 根据内容类型设置不同的AR内容
+            switch (contentType) {
+                case 'image':
+                    setupImageContent();
+                    break;
+                case 'video':
+                    setupVideoContent();
+                    break;
+                case '3d':
+                    setup3DContent();
+                    break;
+                default:
+                    showError('不支持的内容类型');
+                    return;
+            }
+            
+            // 标记AR准备就绪
+            arReady = true;
+            
+            // 显示使用说明
+            loadingScreen.style.display = 'none';
+            instructions.style.display = 'block';
+        }
+
+        // 设置图像内容
+        function setupImageContent() {
+            // 创建图像资源
+            const img = document.createElement('img');
+            img.setAttribute('id', 'ar-image');
+            img.setAttribute('src', contentUrl);
+            img.setAttribute('crossorigin', 'anonymous');
+            arAssets.appendChild(img);
+            
+            // 创建图像平面
+            const plane = document.createElement('a-image');
+            plane.setAttribute('src', '#ar-image');
+            plane.setAttribute('position', '0 0 0');
+            plane.setAttribute('rotation', '-90 0 0');
+            plane.setAttribute('width', '2');
+            plane.setAttribute('height', '2');
+            arMarker.appendChild(plane);
+        }
+
+        // 设置视频内容
+        function setupVideoContent() {
+            // 创建视频资源
+            const video = document.createElement('video');
+            video.setAttribute('id', 'ar-video');
+            video.setAttribute('src', contentUrl);
+            video.setAttribute('preload', 'auto');
+            video.setAttribute('loop', 'true');
+            video.setAttribute('crossorigin', 'anonymous');
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            arAssets.appendChild(video);
+            
+            // 创建视频平面
+            const plane = document.createElement('a-video');
+            plane.setAttribute('src', '#ar-video');
+            plane.setAttribute('position', '0 0 0');
+            plane.setAttribute('rotation', '-90 0 0');
+            plane.setAttribute('width', '2');
+            plane.setAttribute('height', '1.5');
+            arMarker.appendChild(plane);
+            
+            // 标记检测到时播放视频
+            arMarker.addEventListener('markerFound', function() {
+                video.play();
+            });
+            
+            // 标记丢失时暂停视频
+            arMarker.addEventListener('markerLost', function() {
+                video.pause();
+            });
+        }
+
+        // 设置3D模型内容
+        function setup3DContent() {
+            // 创建3D模型资源
+            const model = document.createElement('a-asset-item');
+            model.setAttribute('id', 'ar-model');
+            model.setAttribute('src', contentUrl);
+            arAssets.appendChild(model);
+            
+            // 创建3D模型实体
+            const entity = document.createElement('a-entity');
+            entity.setAttribute('gltf-model', '#ar-model');
+            entity.setAttribute('position', '0 0 0');
+            entity.setAttribute('rotation', '-90 0 0');
+            entity.setAttribute('scale', '0.5 0.5 0.5');
+            arMarker.appendChild(entity);
+        }
+
+        // 开始AR体验
+        function startAR() {
+            if (!arReady) {
+                showError('AR 内容尚未准备就绪');
+                return;
+            }
+            
+            // 隐藏使用说明
+            instructions.style.display = 'none';
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            loadingScreen.style.display = 'none';
+            instructions.style.display = 'none';
+            errorText.textContent = message;
+            errorMessage.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>

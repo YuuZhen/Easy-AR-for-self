@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR 内容管理系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AR 内容管理系统</h1>
+            <button id="addContentBtn" class="btn">添加新内容</button>
+        </header>
+        
+        <div id="contentList" class="content-list">
+            <!-- 内容卡片将通过 JavaScript 动态生成 -->
+        </div>
+    </div>
+    
+    <!-- 添加/编辑内容模态框 -->
+    <div id="contentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">添加新内容</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="contentForm">
+                <input type="hidden" id="contentId">
+                
+                <div class="form-group">
+                    <label for="contentName">内容名称</label>
+                    <input type="text" id="contentName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contentType">内容类型</label>
+                    <select id="contentType" required>
+                        <option value="image">图片</option>
+                        <option value="video">视频</option>
+                        <option value="3d">3D 模型</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="markerImage">标记图像</label>
+                    <div class="file-input-container">
+                        <label class="file-input-label" for="markerImage">选择图像文件</label>
+                        <input type="file" id="markerImage" class="file-input" accept="image/*" required>
+                    </div>
+                    <div id="markerPreview" class="preview-container"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contentFile">内容文件</label>
+                    <div class="file-input-container">
+                        <label class="file-input-label" for="contentFile">选择内容文件</label>
+                        <input type="file" id="contentFile" class="file-input" required>
+                    </div>
+                    <div id="contentPreview" class="preview-container"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contentDescription">描述</label>
+                    <textarea id="contentDescription" rows="3"></textarea>
+                </div>
+                
+                <button type="submit" class="btn">保存</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 查看 QR 码模态框 -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">AR 内容 QR 码</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="qr-container">
+                <div id="qrCode" class="qr-code"></div>
+                <p>扫描此 QR 码以查看 AR 内容</p>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="downloadQrBtn" class="btn">下载 QR 码</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let contents = [];
+        
+        // DOM 元素
+        const contentList = document.getElementById('contentList');
+        const addContentBtn = document.getElementById('addContentBtn');
+        const contentModal = document.getElementById('contentModal');
+        const qrModal = document.getElementById('qrModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const contentForm = document.getElementById('contentForm');
+        const contentId = document.getElementById('contentId');
+        const contentName = document.getElementById('contentName');
+        const contentType = document.getElementById('contentType');
+        const markerImage = document.getElementById('markerImage');
+        const contentFile = document.getElementById('contentFile');
+        const contentDescription = document.getElementById('contentDescription');
+        const markerPreview = document.getElementById('markerPreview');
+        const contentPreview = document.getElementById('contentPreview');
+        const qrCode = document.getElementById('qrCode');
+        const downloadQrBtn = document.getElementById('downloadQrBtn');
+        const closeButtons = document.querySelectorAll('.close');
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', init);
+        
+        function init() {
+            // 从本地存储加载内容
+            loadContents();
+            
+            // 渲染内容列表
+            renderContentList();
+            
+            // 添加事件监听器
+            addContentBtn.addEventListener('click', openAddContentModal);
+            contentForm.addEventListener('submit', saveContent);
+            markerImage.addEventListener('change', previewMarkerImage);
+            contentFile.addEventListener('change', previewContentFile);
+            downloadQrBtn.addEventListener('click', downloadQRCode);
+            
+            // 关闭模态框
+            closeButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    contentModal.style.display = 'none';
+                    qrModal.style.display = 'none';
+                });
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', function(event) {
+                if (event.target === contentModal) {
+                    contentModal.style.display = 'none';
+                }
+                if (event.target === qrModal) {
+                    qrModal.style.display = 'none';
+                }
+            });
+        }
+        
+        // 从本地存储加载内容
+        function loadContents() {
+            const storedContents = localStorage.getItem('arContents');
+            if (storedContents) {
+                contents = JSON.parse(storedContents);
+            }
+        }
+        
+        // 保存内容到本地存储
+        function saveContents() {
+            localStorage.setItem('arContents', JSON.stringify(contents));
+        }
+        
+        // 渲染内容列表
+        function renderContentList() {
+            contentList.innerHTML = '';
+            
+            if (contents.length === 0) {
+                contentList.innerHTML = '<p>暂无内容，请点击"添加新内容"按钮创建。</p>';
+                return;
+            }
+            
+            contents.forEach(content => {
+                const card = document.createElement('div');
+                card.className = 'content-card';
+                
+                // 创建卡片内容
+                card.innerHTML = `
+                    <img src="${content.markerImage}" alt="${content.name}" class="card-image">
+                    <div class="card-content">
+                        <h3 class="card-title">${content.name}</h3>
+                        <p class="card-info">类型: ${getContentTypeName(content.type)}</p>
+                        <p class="card-info">${content.description || '无描述'}</p>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary view-qr" data-id="${content.id}">查看 QR 码</button>
+                            <button class="btn edit-content" data-id="${content.id}">编辑</button>
+                            <button class="btn btn-danger delete-content" data-id="${content.id}">删除</button>
+                        </div>
+                    </div>
+                `;
+                
+                // 添加事件监听器
+                const viewQrBtn = card.querySelector('.view-qr');
+                const editBtn = card.querySelector('.edit-content');
+                const deleteBtn = card.querySelector('.delete-content');
+                
+                viewQrBtn.addEventListener('click', () => showQRCode(content.id));
+                editBtn.addEventListener('click', () => openEditContentModal(content.id));
+                deleteBtn.addEventListener('click', () => deleteContent(content.id));
+                
+                contentList.appendChild(card);
+            });
+        }
+        
+        // 获取内容类型名称
+        function getContentTypeName(type) {
+            switch (type) {
+                case 'image': return '图片';
+                case 'video': return '视频';
+                case '3d': return '3D 模型';
+                default: return '未知';
+            }
+        }
+        
+        // 打开添加内容模态框
+        function openAddContentModal() {
+            modalTitle.textContent = '添加新内容';
+            contentForm.reset();
+            contentId.value = '';
+            markerPreview.innerHTML = '';
+            contentPreview.innerHTML = '';
+            contentModal.style.display = 'block';
+        }
+        
+        // 打开编辑内容模态框
+        function openEditContentModal(id) {
+            const content = contents.find(item => item.id === id);
+            if (!content) return;
+            
+            modalTitle.textContent = '编辑内容';
+            contentId.value = content.id;
+            contentName.value = content.name;
+            contentType.value = content.type;
+            contentDescription.value = content.description || '';
+            
+            // 显示标记图像预览
+            markerPreview.innerHTML = `<img src="${content.markerImage}" class="preview-image">`;
+            
+            // 显示内容预览
+            if (content.type === 'image') {
+                contentPreview.innerHTML = `<img src="${content.contentFile}" class="preview-image">`;
+            } else if (content.type === 'video') {
+                contentPreview.innerHTML = `<video src="${content.contentFile}" controls class="preview-image"></video>`;
+            } else {
+                contentPreview.innerHTML = `<p>3D 模型: ${content.contentFile.split('/').pop()}</p>`;
+            }
+            
+            contentModal.style.display = 'block';
+        }
+        
+        // 预览标记图像
+        function previewMarkerImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                markerPreview.innerHTML = `<img src="${e.target.result}" class="preview-image">`;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 预览内容文件
+        function previewContentFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const type = contentType.value;
+                
+                if (type === 'image') {
+                    contentPreview.innerHTML = `<img src="${e.target.result}" class="preview-image">`;
+                } else if (type === 'video') {
+                    contentPreview.innerHTML = `<video src="${e.target.result}" controls class="preview-image"></video>`;
+                } else {
+                    contentPreview.innerHTML = `<p>3D 模型: ${file.name}</p>`;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 保存内容
+        function saveContent(event) {
+            event.preventDefault();
+            
+            // 获取表单数据
+            const id = contentId.value || generateId();
+            const name = contentName.value;
+            const type = contentType.value;
+            const description = contentDescription.value;
+            
+            // 检查文件
+            const markerFile = markerImage.files[0];
+            const contentFileObj = contentFile.files[0];
+            
+            // 如果是编辑模式且没有选择新文件，保留原文件
+            const existingContent = contents.find(item => item.id === id);
+            
+            let markerImageData = existingContent ? existingContent.markerImage : null;
+            let contentFileData = existingContent ? existingContent.contentFile : null;
+            
+            // 处理标记图像
+            if (markerFile) {
+                const markerReader = new FileReader();
+                markerReader.onload = function(e) {
+                    markerImageData = e.target.result;
+                    
+                    // 处理内容文件
+                    if (contentFileObj) {
+                        const contentReader = new FileReader();
+                        contentReader.onload = function(e) {
+                            contentFileData = e.target.result;
+                            saveContentData(id, name, type, description, markerImageData, contentFileData);
+                        };
+                        contentReader.readAsDataURL(contentFileObj);
+                    } else {
+                        saveContentData(id, name, type, description, markerImageData, contentFileData);
+                    }
+                };
+                markerReader.readAsDataURL(markerFile);
+            } else if (contentFileObj) {
+                const contentReader = new FileReader();
+                contentReader.onload = function(e) {
+                    contentFileData = e.target.result;
+                    saveContentData(id, name, type, description, markerImageData, contentFileData);
+                };
+                contentReader.readAsDataURL(contentFileObj);
+            } else {
+                saveContentData(id, name, type, description, markerImageData, contentFileData);
+            }
+        }
+        
+        // 保存内容数据
+        function saveContentData(id, name, type, description, markerImage, contentFile) {
+            // 验证数据
+            if (!name || !type || !markerImage || !contentFile) {
+                alert('请填写所有必填字段并上传文件');
+                return;
+            }
+            
+            // 创建内容对象
+            const content = {
+                id,
+                name,
+                type,
+                description,
+                markerImage,
+                contentFile,
+                createdAt: new Date().toISOString()
+            };
+            
+            // 查找是否存在相同 ID 的内容
+            const index = contents.findIndex(item => item.id === id);
+            
+            if (index !== -1) {
+                // 更新现有内容
+                contents[index] = content;
+            } else {
+                // 添加新内容
+                contents.push(content);
+            }
+            
+            // 保存到本地存储
+            saveContents();
+            
+            // 关闭模态框
+            contentModal.style.display = 'none';
+            
+            // 重新渲染内容列表
+            renderContentList();
+        }
+        
+        // 删除内容
+        function deleteContent(id) {
+            if (!confirm('确定要删除此内容吗？此操作无法撤销。')) return;
+            
+            // 从数组中删除内容
+            contents = contents.filter(item => item.id !== id);
+            
+            // 保存到本地存储
+            saveContents();
+            
+            // 重新渲染内容列表
+            renderContentList();
+        }
+        
+        // 显示 QR 码
+        function showQRCode(id) {
+            const content = contents.find(item => item.id === id);
+            if (!content) return;
+            
+            // 清除之前的 QR 码
+            qrCode.innerHTML = '';
+            
+            // 生成 AR 页面 URL
+            const arUrl = `${window.location.origin}/user.html?id=${content.id}`;
+            
+            // 创建 QR 码
+            new QRCode(qrCode, {
+                text: arUrl,
+                width: 256,
+                height: 256,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            // 显示模态框
+            qrModal.style.display = 'block';
+        }
+        
+        // 下载 QR 码
+        function downloadQRCode() {
+            const img = qrCode.querySelector('img');
+            if (!img) return;
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = img.src;
+            link.download = 'ar-qrcode.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // 生成唯一 ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+    </script>
+</body>
+</html>

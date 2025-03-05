@@ -4,14 +4,325 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR 内容管理系统</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css">
     <link rel="stylesheet" href="css/style.css">
     <script src="js/qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --primary-light: #eef2ff;
+            --secondary-color: #3a0ca3;
+            --success-color: #4cc9f0;
+            --danger-color: #f72585;
+            --warning-color: #fca311;
+            --dark-color: #2b2d42;
+            --light-color: #f8f9fa;
+            --gray-color: #e9ecef;
+            --text-color: #2b2d42;
+            --text-light: #6c757d;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #f5f7fa;
+            color: var(--text-color);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--gray-color);
+        }
+        
+        h1 {
+            font-weight: 700;
+            color: var(--primary-color);
+            font-size: 2rem;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+        
+        .btn:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--box-shadow);
+        }
+        
+        .btn i {
+            margin-right: 0.5rem;
+        }
+        
+        .btn-secondary {
+            background-color: var(--success-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #3db8dc;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger-color);
+        }
+        
+        .btn-danger:hover {
+            background-color: #e01e79;
+        }
+        
+        .content-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .content-card {
+            background-color: white;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--box-shadow);
+            transition: var(--transition);
+        }
+        
+        .content-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+        }
+        
+        .card-content {
+            padding: 1.25rem;
+        }
+        
+        .card-title {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+        }
+        
+        .card-info {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: var(--border-radius);
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            background-color: var(--primary-light);
+            border-bottom: 1px solid var(--gray-color);
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .close {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+        
+        .close:hover {
+            color: var(--danger-color);
+        }
+        
+        form {
+            padding: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark-color);
+        }
+        
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--gray-color);
+            border-radius: var(--border-radius);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+        
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .file-input-container {
+            position: relative;
+            margin-bottom: 0.75rem;
+        }
+        
+        .file-input {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--gray-color);
+            color: var(--text-color);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .file-input-label:hover {
+            background-color: #dde1e6;
+        }
+        
+        .preview-container {
+            margin-top: 0.75rem;
+            border: 1px dashed var(--gray-color);
+            border-radius: var(--border-radius);
+            padding: 0.5rem;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 4px;
+        }
+        
+        .qr-container {
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .qr-code {
+            display: inline-block;
+            padding: 1rem;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-light);
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            color: var(--gray-color);
+            margin-bottom: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .content-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>AR 内容管理系统</h1>
-            <button id="addContentBtn" class="btn">添加新内容</button>
+            <button id="addContentBtn" class="btn"><i class="ri-add-line"></i> 添加新内容</button>
         </header>
         
         <div id="contentList" class="content-list">
@@ -31,7 +342,7 @@
                 
                 <div class="form-group">
                     <label for="contentName">内容名称</label>
-                    <input type="text" id="contentName" required>
+                    <input type="text" id="contentName" required placeholder="输入AR内容名称">
                 </div>
                 
                 <div class="form-group">
@@ -46,7 +357,7 @@
                 <div class="form-group">
                     <label for="markerImage">标记图像</label>
                     <div class="file-input-container">
-                        <label class="file-input-label" for="markerImage">选择图像文件</label>
+                        <label class="file-input-label" for="markerImage"><i class="ri-image-add-line"></i> 选择图像文件</label>
                         <input type="file" id="markerImage" class="file-input" accept="image/*" required>
                     </div>
                     <div id="markerPreview" class="preview-container"></div>
@@ -55,7 +366,7 @@
                 <div class="form-group">
                     <label for="contentFile">内容文件</label>
                     <div class="file-input-container">
-                        <label class="file-input-label" for="contentFile">选择内容文件</label>
+                        <label class="file-input-label" for="contentFile"><i class="ri-file-upload-line"></i> 选择内容文件</label>
                         <input type="file" id="contentFile" class="file-input" required>
                     </div>
                     <div id="contentPreview" class="preview-container"></div>
@@ -63,10 +374,10 @@
                 
                 <div class="form-group">
                     <label for="contentDescription">描述</label>
-                    <textarea id="contentDescription" rows="3"></textarea>
+                    <textarea id="contentDescription" rows="3" placeholder="输入对此AR内容的描述（可选）"></textarea>
                 </div>
                 
-                <button type="submit" class="btn">保存</button>
+                <button type="submit" class="btn"><i class="ri-save-line"></i> 保存</button>
             </form>
         </div>
     </div>
@@ -81,9 +392,7 @@
             <div class="qr-container">
                 <div id="qrCode" class="qr-code"></div>
                 <p>扫描此 QR 码以查看 AR 内容</p>
-            </div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button id="downloadQrBtn" class="btn">下载 QR 码</button>
+                <button id="downloadQrBtn" class="btn"><i class="ri-download-line"></i> 下载 QR 码</button>
             </div>
         </div>
     </div>
@@ -165,7 +474,13 @@
             contentList.innerHTML = '';
             
             if (contents.length === 0) {
-                contentList.innerHTML = '<p>暂无内容，请点击"添加新内容"按钮创建。</p>';
+                contentList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="ri-file-list-3-line"></i>
+                        <h3>暂无内容</h3>
+                        <p>点击"添加新内容"按钮创建您的第一个AR内容</p>
+                    </div>
+                `;
                 return;
             }
             
@@ -181,9 +496,9 @@
                         <p class="card-info">类型: ${getContentTypeName(content.type)}</p>
                         <p class="card-info">${content.description || '无描述'}</p>
                         <div class="card-actions">
-                            <button class="btn btn-secondary view-qr" data-id="${content.id}">查看 QR 码</button>
-                            <button class="btn edit-content" data-id="${content.id}">编辑</button>
-                            <button class="btn btn-danger delete-content" data-id="${content.id}">删除</button>
+                            <button class="btn btn-secondary view-qr" data-id="${content.id}"><i class="ri-qr-code-line"></i> 查看 QR 码</button>
+                            <button class="btn edit-content" data-id="${content.id}"><i class="ri-edit-line"></i> 编辑</button>
+                            <button class="btn btn-danger delete-content" data-id="${content.id}"><i class="ri-delete-bin-line"></i> 删除</button>
                         </div>
                     </div>
                 `;
@@ -393,7 +708,7 @@
             qrCode.innerHTML = '';
             
             // 生成 AR 页面 URL
-            const arUrl = `${window.location.origin}/user.html?id=${content.id}`;
+            const arUrl = `${window.location.origin}/ar-viewer.html?id=${content.id}`;
             
             // 创建 QR 码
             new QRCode(qrCode, {

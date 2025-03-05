@@ -708,17 +708,36 @@
             qrCode.innerHTML = '';
             
             // 生成 AR 页面 URL
-            const arUrl = `${window.location.origin}/ar-viewer.html?id=${content.id}`;
+            // 修复：确保URL正确生成，使用绝对路径
+            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+            const arUrl = `${baseUrl}ar-viewer.html?id=${content.id}`;
             
             // 创建 QR 码
-            new QRCode(qrCode, {
-                text: arUrl,
-                width: 256,
-                height: 256,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
+            try {
+                new QRCode(qrCode, {
+                    text: arUrl,
+                    width: 256,
+                    height: 256,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                // 添加URL显示
+                const urlDisplay = document.createElement('div');
+                urlDisplay.className = 'url-display';
+                urlDisplay.style.marginTop = '10px';
+                urlDisplay.style.wordBreak = 'break-all';
+                urlDisplay.style.fontSize = '0.9rem';
+                urlDisplay.style.color = 'var(--text-light)';
+                urlDisplay.textContent = arUrl;
+                qrCode.appendChild(urlDisplay);
+                
+                console.log('QR码已生成，URL:', arUrl);
+            } catch (error) {
+                console.error('生成QR码时出错:', error);
+                qrCode.innerHTML = `<p style="color: var(--danger-color)">生成QR码时出错: ${error.message}</p>`;
+            }
             
             // 显示模态框
             qrModal.style.display = 'block';
@@ -727,15 +746,23 @@
         // 下载 QR 码
         function downloadQRCode() {
             const img = qrCode.querySelector('img');
-            if (!img) return;
+            if (!img) {
+                alert('无法下载QR码，请先生成QR码');
+                return;
+            }
             
-            // 创建下载链接
-            const link = document.createElement('a');
-            link.href = img.src;
-            link.download = 'ar-qrcode.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            try {
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.href = img.src;
+                link.download = 'ar-qrcode.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error('下载QR码时出错:', error);
+                alert('下载QR码时出错: ' + error.message);
+            }
         }
         
         // 生成唯一 ID

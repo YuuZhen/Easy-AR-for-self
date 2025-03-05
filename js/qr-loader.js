@@ -23,3 +23,35 @@ async function createQRCode(elementId, text) {
     console.error('QR码生成失败:', error);
   }
 }
+
+// 添加保存QR码图片的功能
+function saveQRCode(elementId, filename = 'qrcode') {
+  try {
+    const qrCanvas = document.querySelector(`#${elementId} canvas`);
+    if (!qrCanvas) {
+      throw new Error('未找到QR码画布元素');
+    }
+    
+    // 创建一个临时链接用于下载
+    const link = document.createElement('a');
+    link.download = `${filename}.png`;
+    link.href = qrCanvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('QR码保存成功');
+  } catch (error) {
+    console.error('QR码保存失败:', error);
+  }
+}
+
+// 绑定保存按钮点击事件
+function bindSaveButton(buttonId, qrCodeElementId, filename) {
+  const saveButton = document.getElementById(buttonId);
+  if (saveButton) {
+    saveButton.addEventListener('click', () => {
+      saveQRCode(qrCodeElementId, filename);
+    });
+  }
+}
